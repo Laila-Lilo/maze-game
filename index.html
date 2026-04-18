@@ -1,59 +1,113 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Maze Game</title>
+  <title>Chaos Maze Game</title>
   <style>
     body {
       background: black;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+      color: white;
+      text-align: center;
+      font-family: Arial;
     }
 
     canvas {
       border: 4px solid purple;
       background: #111;
+      margin-top: 10px;
+    }
+
+    button {
+      margin: 5px;
+      padding: 10px;
+      background: purple;
+      color: white;
+      border: none;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
 
+<h2 id="levelText">Level 1</h2>
+<p id="info">Coins: 0</p>
+
 <canvas id="game" width="400" height="400"></canvas>
+<br>
+
+<button onclick="restart()">Restart</button>
+<button onclick="teleport()">Teleport 😈</button>
+<button onclick="flipMaze()">Flip Maze 🔄</button>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
 const tileSize = 40;
 
-// 0 = path, 1 = wall
-const maze = [
-  [1,1,1,1,1,1,1,1,1,1],
-  [1,0,0,0,1,0,0,0,0,1],
-  [1,0,1,0,1,0,1,1,0,1],
-  [1,0,1,0,0,0,0,1,0,1],
-  [1,0,1,1,1,1,0,1,0,1],
-  [1,0,0,0,0,1,0,1,0,1],
-  [1,1,1,1,0,1,0,1,0,1],
-  [1,0,0,1,0,0,0,1,0,1],
-  [1,0,0,0,0,1,0,0,0,1],
-  [1,1,1,1,1,1,1,1,1,1],
+const levels = [
+  [
+    [1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,1,0,1],
+    [1,1,1,1,1,1,0,1,0,1],
+    [1,0,0,0,0,1,0,1,0,1],
+    [1,0,1,1,0,1,0,1,0,1],
+    [1,0,1,0,0,0,0,1,0,1],
+    [1,0,0,0,1,1,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1],
+  ],
+  [
+    [1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,1],
+    [1,0,1,0,1,0,1,1,0,1],
+    [1,0,1,0,0,0,0,1,0,1],
+    [1,0,1,1,1,1,0,1,0,1],
+    [1,0,0,0,0,1,0,1,0,1],
+    [1,1,1,1,0,1,0,1,0,1],
+    [1,0,0,1,0,0,0,1,0,1],
+    [1,0,0,0,0,1,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1],
+  ]
 ];
 
-let player = { x: 1, y: 1 };
-let goal = { x: 8, y: 8 };
+let currentLevel = 0;
+let maze, player, goal, coins, enemy, portals;
+let collected = 0;
+
+function startLevel() {
+  maze = JSON.parse(JSON.stringify(levels[currentLevel]));
+  player = { x: 1, y: 1 };
+  goal = { x: 8, y: 8 };
+
+  // coins
+  coins = [];
+  for (let i = 0; i < currentLevel + 3; i++) {
+    coins.push({
+      x: Math.floor(Math.random()*8)+1,
+      y: Math.floor(Math.random()*8)+1
+    });
+  }
+
+  // enemy
+  enemy = { x: 8, y: 1 };
+
+  // portals
+  portals = [
+    {x:2,y:2},
+    {x:7,y:7}
+  ];
+
+  collected = 0;
+  updateInfo();
+  updateLevelText();
+  draw();
+}
 
 function drawMaze() {
   for (let y = 0; y < maze.length; y++) {
     for (let x = 0; x < maze[y].length; x++) {
-      if (maze[y][x] === 1) {
-        ctx.fillStyle = "purple";
-        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-      } else {
-        ctx.fillStyle = "#222";
-        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-      }
+      ctx.fillStyle = maze[y][x] === 1 ? "purple" : "#222";
+      ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
     }
   }
 }
@@ -68,39 +122,126 @@ function drawGoal() {
   ctx.fillRect(goal.x * tileSize, goal.y * tileSize, tileSize, tileSize);
 }
 
+function drawCoins() {
+  ctx.fillStyle = "gold";
+  coins.forEach(c => {
+    ctx.fillRect(c.x*tileSize+10, c.y*tileSize+10, 20, 20);
+  });
+}
+
+function drawEnemy() {
+  ctx.fillStyle = "red";
+  ctx.fillRect(enemy.x * tileSize, enemy.y * tileSize, tileSize, tileSize);
+}
+
+function drawPortals() {
+  ctx.fillStyle = "blue";
+  portals.forEach(p => {
+    ctx.fillRect(p.x*tileSize+5, p.y*tileSize+5, 30, 30);
+  });
+}
+
 function draw() {
   drawMaze();
   drawGoal();
+  drawCoins();
+  drawPortals();
+  drawEnemy();
   drawPlayer();
 }
 
 function move(dx, dy) {
-  let newX = player.x + dx;
-  let newY = player.y + dy;
+  let nx = player.x + dx;
+  let ny = player.y + dy;
 
-  if (maze[newY][newX] === 0) {
-    player.x = newX;
-    player.y = newY;
+  if (maze[ny][nx] === 0) {
+    player.x = nx;
+    player.y = ny;
   }
 
-  if (player.x === goal.x && player.y === goal.y) {
-    setTimeout(() => {
-      alert("YOU WIN 🎉");
-      player = { x: 1, y: 1 };
-    }, 100);
+  // collect coins
+  coins = coins.filter(c => {
+    if (c.x === player.x && c.y === player.y) {
+      collected++;
+      return false;
+    }
+    return true;
+  });
+
+  // portal teleport
+  portals.forEach(p => {
+    if (p.x === player.x && p.y === player.y) {
+      player.x = portals[1].x;
+      player.y = portals[1].y;
+    }
+  });
+
+  // win
+  if (player.x === goal.x && player.y === goal.y && coins.length === 0) {
+    currentLevel++;
+    if (currentLevel >= levels.length) {
+      alert("YOU WON 🏆");
+      currentLevel = 0;
+    }
+    startLevel();
   }
 
+  // lose
+  if (player.x === enemy.x && player.y === enemy.y) {
+    alert("CAUGHT 😈");
+    startLevel();
+  }
+
+  moveEnemy();
+  updateInfo();
   draw();
 }
 
-document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowUp") move(0, -1);
-  if (e.key === "ArrowDown") move(0, 1);
-  if (e.key === "ArrowLeft") move(-1, 0);
-  if (e.key === "ArrowRight") move(1, 0);
+function moveEnemy() {
+  let dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  let d = dirs[Math.floor(Math.random()*dirs.length)];
+
+  let nx = enemy.x + d[0];
+  let ny = enemy.y + d[1];
+
+  if (maze[ny][nx] === 0) {
+    enemy.x = nx;
+    enemy.y = ny;
+  }
+}
+
+function teleport() {
+  player.x = Math.floor(Math.random()*8)+1;
+  player.y = Math.floor(Math.random()*8)+1;
+  draw();
+}
+
+function flipMaze() {
+  maze = maze.map(row => row.reverse());
+  draw();
+}
+
+function updateInfo() {
+  document.getElementById("info").innerText = "Coins: " + collected;
+}
+
+function updateLevelText() {
+  document.getElementById("levelText").innerText =
+    "Level " + (currentLevel + 1);
+}
+
+function restart() {
+  startLevel();
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowUp") move(0,-1);
+  if (e.key === "ArrowDown") move(0,1);
+  if (e.key === "ArrowLeft") move(-1,0);
+  if (e.key === "ArrowRight") move(1,0);
 });
 
-draw();
+startLevel();
 </script>
 
 </body>
